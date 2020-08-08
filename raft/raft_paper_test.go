@@ -293,6 +293,7 @@ func testNonleaderElectionTimeoutRandomized(t *testing.T, state StateType) {
 			time++
 		}
 		timeouts[time] = true
+
 	}
 
 	for d := et + 1; d < 2*et; d++ {
@@ -362,6 +363,10 @@ func testNonleadersElectionTimeoutNonconflict(t *testing.T, state StateType) {
 // Reference: section 5.3
 func TestLeaderStartReplication2AB(t *testing.T) {
 	s := NewMemoryStorage()
+	sli := s.lastIndex()
+	sfi := s.firstIndex()
+	entries, _ := s.Entries(sfi-1, sli+1)
+	fmt.Printf("%v,sfi=%d,s.lastindex=%d\n,len=%d,%v\n", s.ents, sfi, sli, len(entries), entries)
 	r := newTestRaft(1, []uint64{1, 2, 3}, 10, 1, s)
 	r.becomeCandidate()
 	r.becomeLeader()
@@ -900,6 +905,7 @@ func commitNoopEntry(r *Raft, s *MemoryStorage) {
 	// simulate the response of MessageType_MsgAppend
 	msgs := r.readMessages()
 	for _, m := range msgs {
+
 		if m.MsgType != pb.MessageType_MsgAppend || len(m.Entries) != 1 || m.Entries[0].Data != nil {
 			panic("not a message to append noop entry")
 		}
