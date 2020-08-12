@@ -74,6 +74,7 @@ func newLog(storage Storage) *RaftLog {
 		stabled: li,
 		entries: entries,
 	}
+
 	return raftlog
 }
 
@@ -90,6 +91,10 @@ func (l *RaftLog) unstableEntries() []pb.Entry {
 	ents := make([]pb.Entry, 0)
 	li := l.LastIndex()
 	fi := l.FirstIndex()
+	fmt.Printf("stabled=%d,li=%d,fi=%d\n", l.stabled, li, fi)
+	if l.stabled+1 > l.LastIndex() {
+		return make([]pb.Entry, 0)
+	}
 	for i := l.stabled + 1; i <= li; i++ {
 		ents = append(ents, l.entries[i-fi])
 	}
@@ -101,8 +106,8 @@ func (l *RaftLog) nextEnts() (ents []pb.Entry) {
 	// Your Code Here (2A).
 	ents = make([]pb.Entry, 0)
 	fi := l.FirstIndex()
-	fmt.Printf("entries[0]fi=%d\n", l.entries[0].Index)
-	fmt.Printf("%v\n", l.entries[0])
+	//fmt.Printf("entries[0]fi=%d\n", l.entries[0].Index)
+	//fmt.Printf("%v\n", l.entries[0])
 	//fmt.Printf("\napplied=%d,l.commited=%d\n",l.applied,l.committed)
 
 	for i := l.applied + 1; i <= l.committed; i++ {
