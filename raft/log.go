@@ -89,8 +89,9 @@ func (l *RaftLog) unstableEntries() []pb.Entry {
 	// Your Code Here (2A).
 	ents := make([]pb.Entry, 0)
 	li := l.LastIndex()
-	for i := l.stabled; i < li; i++ {
-		ents = append(ents, l.entries[i])
+	fi := l.FirstIndex()
+	for i := l.stabled + 1; i <= li; i++ {
+		ents = append(ents, l.entries[i-fi])
 	}
 	return ents
 }
@@ -98,24 +99,34 @@ func (l *RaftLog) unstableEntries() []pb.Entry {
 // nextEnts returns all the committed but not applied entries
 func (l *RaftLog) nextEnts() (ents []pb.Entry) {
 	// Your Code Here (2A).
-	return nil
+	ents = make([]pb.Entry, 0)
+	fi := l.FirstIndex()
+	fmt.Printf("entries[0]fi=%d\n", l.entries[0].Index)
+	fmt.Printf("%v\n", l.entries[0])
+	//fmt.Printf("\napplied=%d,l.commited=%d\n",l.applied,l.committed)
+
+	for i := l.applied + 1; i <= l.committed; i++ {
+		ents = append(ents, l.entries[i-fi])
+	}
+	return ents
 }
 
 // LastIndex return the last index of the log entries
 func (l *RaftLog) LastIndex() uint64 {
 	// Your Code Here (2A).
-	if len(l.entries) > 0 {
-		fi, err := l.storage.FirstIndex()
-		if err != nil {
-			panic(err)
-		}
-		return fi + uint64(len(l.entries)) - 1
+	len := len(l.entries)
+	if len <= 0 {
+		return 0
 	}
-	i, err := l.storage.LastIndex()
-	if err != nil {
-		panic(err)
+	return l.entries[len-1].Index
+}
+
+func (l *RaftLog) FirstIndex() uint64 {
+	// Your Code Here (2A).
+	if len(l.entries) <= 0 {
+		return 0
 	}
-	return i
+	return l.entries[0].Index
 }
 
 // Term return the term of the entry in the given index
@@ -142,7 +153,7 @@ func (l *RaftLog) getEnts(i uint64) []*pb.Entry {
 	ents := make([]*pb.Entry, 0)
 	fi, _ := l.storage.FirstIndex()
 	li := l.LastIndex()
-	fmt.Printf("start i=%d,len=%d", i, len(l.entries))
+	//fmt.Printf("start i=%d,len=%d", i, len(l.entries))
 	for ; i <= li; i++ {
 		ents = append(ents, &l.entries[i-fi])
 	}
