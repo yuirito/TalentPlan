@@ -416,6 +416,7 @@ func TestLeaderCommitEntry2AB(t *testing.T) {
 
 	for _, m := range r.readMessages() {
 		r.Step(acceptAndReply(m))
+		fmt.Printf("1:%v\n", m)
 	}
 
 	if g := r.RaftLog.committed; g != li+1 {
@@ -426,6 +427,7 @@ func TestLeaderCommitEntry2AB(t *testing.T) {
 		t.Errorf("nextEnts = %+v, want %+v", g, wents)
 	}
 	msgs := r.readMessages()
+	fmt.Printf("%v\n", msgs)
 	sort.Sort(messageSlice(msgs))
 	for i, m := range msgs {
 		if w := uint64(i + 2); m.To != w {
@@ -749,6 +751,7 @@ func TestLeaderSyncFollowerLog2AB(t *testing.T) {
 		// The election occurs in the term after the one we loaded with
 		// lead's term and commited index setted up above.
 		n.send(pb.Message{From: 3, To: 1, MsgType: pb.MessageType_MsgRequestVoteResponse, Term: term + 1})
+		fmt.Printf("#%d 1state=%s\n", i, lead.State)
 
 		n.send(pb.Message{From: 1, To: 1, MsgType: pb.MessageType_MsgPropose, Entries: []*pb.Entry{{}}})
 

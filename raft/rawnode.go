@@ -75,7 +75,11 @@ type RawNode struct {
 // NewRawNode returns a new RawNode given configuration and a list of raft peers.
 func NewRawNode(config *Config) (*RawNode, error) {
 	// Your Code Here (2A).
-	return nil, nil
+	raft := newRaft(config)
+	rnode := &RawNode{
+		Raft: raft,
+	}
+	return rnode, nil
 }
 
 // Tick advances the internal logical clock by a single tick.
@@ -143,7 +147,12 @@ func (rn *RawNode) Step(m pb.Message) error {
 // Ready returns the current point-in-time state of this RawNode.
 func (rn *RawNode) Ready() Ready {
 	// Your Code Here (2A).
-	return Ready{}
+
+	ready := Ready{
+		CommittedEntries: rn.Raft.RaftLog.entries[0:rn.Raft.RaftLog.committed],
+		Entries:          rn.Raft.RaftLog.unstableEntries(),
+	}
+	return ready
 }
 
 // HasReady called when RawNode user need to check if any Ready pending.
@@ -156,6 +165,23 @@ func (rn *RawNode) HasReady() bool {
 // last Ready results.
 func (rn *RawNode) Advance(rd Ready) {
 	// Your Code Here (2A).
+	ents := make([]pb.Entry, 0)
+
+	l1 := len(rn.Raft.RaftLog.entries)
+	l2 := len(rd.Entries)
+	if (l1 - l2) > 0 {
+		for i := l2; i < l1; i++ {
+			ents = append(ents, rn.Raft.RaftLog.entries[i])
+
+		}
+	}
+	rn.Raft.RaftLog.entries = ents
+	if rn.Raft.RaftLog.committed < uint64(l2) {
+		rn.Raft.RaftLog.committed = 0
+	} else {
+		rn.Raft.RaftLog.committed -= uint64(l2)
+	}
+
 }
 
 // GetProgress return the the Progress of this node and its peers, if this

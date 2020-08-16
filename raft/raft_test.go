@@ -512,6 +512,7 @@ func TestProposal2AB(t *testing.T) {
 			wantLog.committed = 2
 		}
 		base := ltoa(wantLog)
+
 		for i, p := range tt.peers {
 			if sm, ok := p.(*Raft); ok {
 				l := ltoa(sm.RaftLog)
@@ -1569,6 +1570,7 @@ func newNetworkWithConfig(configFunc func(*Config), peers ...stateMachine) *netw
 func (nw *network) send(msgs ...pb.Message) {
 	for len(msgs) > 0 {
 		m := msgs[0]
+		//fmt.Printf("from=%d,to=%d,type=%s,reject=%v,logterm=%d,index=%d,commit=%d,msgterm=%d,msg:%v\n",m.From,m.To,m.MsgType,m.Reject,m.LogTerm,m.Index,m.Commit,m.Term,m)
 		p := nw.peers[m.To]
 		p.Step(m)
 		msgs = append(msgs[1:], nw.filter(p.readMessages())...)
