@@ -16,6 +16,7 @@ package raft
 
 import (
 	"errors"
+	"fmt"
 
 	pb "github.com/pingcap-incubator/tinykv/proto/pkg/eraftpb"
 )
@@ -149,8 +150,9 @@ func (rn *RawNode) Ready() Ready {
 	// Your Code Here (2A).
 
 	ready := Ready{
-		CommittedEntries: rn.Raft.RaftLog.entries[0:rn.Raft.RaftLog.committed],
+		CommittedEntries: rn.Raft.RaftLog.nextEnts(),
 		Entries:          rn.Raft.RaftLog.unstableEntries(),
+		Messages:         rn.Raft.msgs,
 	}
 	return ready
 }
@@ -158,28 +160,31 @@ func (rn *RawNode) Ready() Ready {
 // HasReady called when RawNode user need to check if any Ready pending.
 func (rn *RawNode) HasReady() bool {
 	// Your Code Here (2A).
-	return false
+	if len(rn.Raft.RaftLog.nextEnts()) != 0 {
+		fmt.Printf("len nextents=%d\n", len(rn.Raft.RaftLog.nextEnts()))
+	}
+	if len(rn.Raft.RaftLog.unstableEntries()) != 0 {
+		fmt.Printf("len unstable=%d\n", len(rn.Raft.RaftLog.unstableEntries()))
+	}
+	if len(rn.Raft.RaftLog.unstableEntries()) == 0 && len(rn.Raft.RaftLog.nextEnts()) == 0 {
+		return false
+	}
+	return true
 }
 
 // Advance notifies the RawNode that the application has applied and saved progress in the
 // last Ready results.
 func (rn *RawNode) Advance(rd Ready) {
 	// Your Code Here (2A).
-	ents := make([]pb.Entry, 0)
 
-	l1 := len(rn.Raft.RaftLog.entries)
-	l2 := len(rd.Entries)
-	if (l1 - l2) > 0 {
-		for i := l2; i < l1; i++ {
-			ents = append(ents, rn.Raft.RaftLog.entries[i])
-
-		}
+	len_stabled := len(rd.Entries)
+	len_commited := len(rd.CommittedEntries)
+	if len_stabled > 0 {
+		rn.Raft.RaftLog.stabled = rd.Entries[len_stabled-1].Index
 	}
-	rn.Raft.RaftLog.entries = ents
-	if rn.Raft.RaftLog.committed < uint64(l2) {
-		rn.Raft.RaftLog.committed = 0
-	} else {
-		rn.Raft.RaftLog.committed -= uint64(l2)
+	if len_commited > 0 {
+		rn.Raft.RaftLog.applied = rd.CommittedEntries[len_commited-1].Index
+		//rn.Raft.RaftLog.committed=rn.Raft.RaftLog.applied
 	}
 
 }

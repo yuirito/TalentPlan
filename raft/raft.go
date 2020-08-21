@@ -334,6 +334,9 @@ func (r *Raft) becomeLeader() {
 		Data:      nil,
 	}
 	r.RaftLog.entries = append(r.RaftLog.entries, entry)
+	if len(r.Prs) == 1 {
+		r.RaftLog.committed++
+	}
 	for i, _ := range r.Prs {
 		if i != r.id {
 			r.sendAppend(i)
@@ -360,7 +363,9 @@ func (r *Raft) Step(m pb.Message) error {
 			return err
 		}
 	case StateLeader:
+		fmt.Printf("b: len entry=%d applied=%d,commit=%d\n", len(r.RaftLog.entries), r.RaftLog.applied, r.RaftLog.committed)
 		err := r.stepLeader(m)
+		fmt.Printf("af:  applied=%d,commit=%d\n", r.RaftLog.applied, r.RaftLog.committed)
 		if err != nil {
 			return err
 		}
@@ -566,9 +571,11 @@ func (r *Raft) stepLeader(m pb.Message) error {
 	case pb.MessageType_MsgPropose:
 		{
 
+			fmt.Printf("1:applied=%d,commited=%d\n", r.RaftLog.applied, r.RaftLog.committed)
 			r.handleAppendEntries(m)
 			r.Prs[r.id].Match = r.RaftLog.LastIndex()
 			r.Prs[r.id].Next = r.Prs[r.id].Match + 1
+			fmt.Printf("2:applied=%d,commited=%d\n", r.RaftLog.applied, r.RaftLog.committed)
 
 			if len(r.Prs) <= 1 {
 				r.RaftLog.committed = r.RaftLog.LastIndex()
