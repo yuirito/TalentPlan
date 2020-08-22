@@ -170,6 +170,10 @@ func newRaft(c *Config) *Raft {
 	//fmt.Printf("fi=%d,li=%d\n",y,x)
 	raftlog := newLog(c.Storage)
 	li := raftlog.LastIndex()
+	state, confSt, _ := raftlog.storage.InitialState()
+	if c.peers == nil {
+		c.peers = confSt.Nodes
+	}
 	prs := make(map[uint64]*Progress, len(c.peers))
 	var i uint64
 	for i = 1; i <= uint64(len(c.peers)); i++ {
@@ -193,7 +197,7 @@ func newRaft(c *Config) *Raft {
 		randomTimeout:    0,
 	}
 	raft.becomeFollower(0, 0)
-	state, _, _ := raft.RaftLog.storage.InitialState()
+
 	raft.Term, raft.Vote, raft.RaftLog.committed = state.Term, state.Vote, state.Commit
 
 	return raft
@@ -219,7 +223,7 @@ func (r *Raft) sendAppend(to uint64) bool {
 	idx := r.Prs[to].Next
 	logTerm, err := r.RaftLog.Term(idx - 1)
 	if err != nil {
-		panic(err)
+		return false
 	}
 
 	m := pb.Message{
@@ -363,9 +367,7 @@ func (r *Raft) Step(m pb.Message) error {
 			return err
 		}
 	case StateLeader:
-		fmt.Printf("b: len entry=%d applied=%d,commit=%d\n", len(r.RaftLog.entries), r.RaftLog.applied, r.RaftLog.committed)
 		err := r.stepLeader(m)
-		fmt.Printf("af:  applied=%d,commit=%d\n", r.RaftLog.applied, r.RaftLog.committed)
 		if err != nil {
 			return err
 		}
@@ -571,11 +573,9 @@ func (r *Raft) stepLeader(m pb.Message) error {
 	case pb.MessageType_MsgPropose:
 		{
 
-			fmt.Printf("1:applied=%d,commited=%d\n", r.RaftLog.applied, r.RaftLog.committed)
 			r.handleAppendEntries(m)
 			r.Prs[r.id].Match = r.RaftLog.LastIndex()
 			r.Prs[r.id].Next = r.Prs[r.id].Match + 1
-			fmt.Printf("2:applied=%d,commited=%d\n", r.RaftLog.applied, r.RaftLog.committed)
 
 			if len(r.Prs) <= 1 {
 				r.RaftLog.committed = r.RaftLog.LastIndex()
@@ -692,8 +692,7 @@ func (r *Raft) stepFollower(m pb.Message) error {
 		{
 			if m.MsgType == pb.MessageType_MsgAppend {
 				if r.Term > m.Term {
-					err := errors.New("r.term>msg.term")
-					return err
+					return nil
 				}
 				r.Term = m.Term
 				r.Lead = m.From

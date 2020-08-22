@@ -32,10 +32,6 @@ type SoftState struct {
 	RaftState StateType
 }
 
-func (a *SoftState) equal(b *SoftState) bool {
-	return a.Lead == b.Lead && a.RaftState == b.RaftState
-}
-
 // Ready encapsulates the entries and messages that are ready to read,
 // be saved to stable storage, committed or sent to other peers.
 // All fields in Ready are read-only.
@@ -163,10 +159,9 @@ func (rn *RawNode) Ready() Ready {
 // HasReady called when RawNode user need to check if any Ready pending.
 func (rn *RawNode) HasReady() bool {
 	// Your Code Here (2A).
-	r := rn.Raft
-	if len(r.RaftLog.unstableEntries()) > 0 ||
-		len(r.RaftLog.nextEnts()) > 0 ||
-		len(r.msgs) > 0 {
+	if len(rn.Raft.RaftLog.unstableEntries()) > 0 ||
+		len(rn.Raft.RaftLog.nextEnts()) > 0 ||
+		len(rn.Raft.msgs) > 0 {
 		return true
 	}
 	return false
@@ -184,7 +179,6 @@ func (rn *RawNode) Advance(rd Ready) {
 	}
 	if len_commited > 0 {
 		rn.Raft.RaftLog.applied = rd.CommittedEntries[len_commited-1].Index
-		//rn.Raft.RaftLog.committed=rn.Raft.RaftLog.applied
 	}
 
 }
