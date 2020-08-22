@@ -16,8 +16,6 @@ package raft
 
 import (
 	"errors"
-	"fmt"
-
 	pb "github.com/pingcap-incubator/tinykv/proto/pkg/eraftpb"
 )
 
@@ -32,6 +30,10 @@ var ErrStepPeerNotFound = errors.New("raft: cannot step as peer not found")
 type SoftState struct {
 	Lead      uint64
 	RaftState StateType
+}
+
+func (a *SoftState) equal(b *SoftState) bool {
+	return a.Lead == b.Lead && a.RaftState == b.RaftState
 }
 
 // Ready encapsulates the entries and messages that are ready to read,
@@ -154,22 +156,20 @@ func (rn *RawNode) Ready() Ready {
 		Entries:          rn.Raft.RaftLog.unstableEntries(),
 		Messages:         rn.Raft.msgs,
 	}
+	rn.Raft.msgs = make([]pb.Message, 0)
 	return ready
 }
 
 // HasReady called when RawNode user need to check if any Ready pending.
 func (rn *RawNode) HasReady() bool {
 	// Your Code Here (2A).
-	if len(rn.Raft.RaftLog.nextEnts()) != 0 {
-		fmt.Printf("len nextents=%d\n", len(rn.Raft.RaftLog.nextEnts()))
+	r := rn.Raft
+	if len(r.RaftLog.unstableEntries()) > 0 ||
+		len(r.RaftLog.nextEnts()) > 0 ||
+		len(r.msgs) > 0 {
+		return true
 	}
-	if len(rn.Raft.RaftLog.unstableEntries()) != 0 {
-		fmt.Printf("len unstable=%d\n", len(rn.Raft.RaftLog.unstableEntries()))
-	}
-	if len(rn.Raft.RaftLog.unstableEntries()) == 0 && len(rn.Raft.RaftLog.nextEnts()) == 0 {
-		return false
-	}
-	return true
+	return false
 }
 
 // Advance notifies the RawNode that the application has applied and saved progress in the

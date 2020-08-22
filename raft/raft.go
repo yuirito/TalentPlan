@@ -413,7 +413,7 @@ func (r *Raft) handleAppendEntries(m pb.Message) {
 			}
 
 			//r.RaftLog.stabled = li
-			fi := r.RaftLog.FirstIndex()
+			fi := r.RaftLog.FirstIndex
 			stable := true
 			for i := range m.Entries {
 				entidx := m.Entries[i].Index
@@ -513,7 +513,7 @@ func (r *Raft) handleRequestVote(m pb.Message) {
 
 func (r *Raft) updateCommited() bool {
 	matches := make([]uint64, len(r.RaftLog.entries))
-	fi := r.RaftLog.FirstIndex()
+	fi := r.RaftLog.FirstIndex
 	li := r.RaftLog.LastIndex()
 	for i, prs := range r.Prs {
 
