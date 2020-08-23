@@ -22,7 +22,6 @@ func NewStandAloneStorage(conf *config.Config) *StandAloneStorage {
 	dbPath := conf.DBPath
 	kvPath := filepath.Join(dbPath, "kv")
 	raftPath := filepath.Join(dbPath, "raft")
-
 	kvDB := engine_util.CreateDB("kv", conf)
 	raftDB := engine_util.CreateDB("raft", conf)
 	return &StandAloneStorage{

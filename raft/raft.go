@@ -165,9 +165,6 @@ func newRaft(c *Config) *Raft {
 		panic(err.Error())
 	}
 	// Your Code Here (2A)
-	///x,_:=c.Storage.LastIndex()
-	//y,_:=c.Storage.FirstIndex()
-	//fmt.Printf("fi=%d,li=%d\n",y,x)
 	raftlog := newLog(c.Storage)
 	li := raftlog.LastIndex()
 	state, confSt, _ := raftlog.storage.InitialState()
@@ -208,8 +205,6 @@ func newRaft(c *Config) *Raft {
 // current commit index to the given peer. Returns true if a message was sent.
 func (r *Raft) sendAppend(to uint64) bool {
 	// Your Code Here (2A).
-	//fmt.Printf("\nlen ent=%d\n",len(r.RaftLog.entries))
-
 	li := r.RaftLog.LastIndex()
 	fi, _ := r.RaftLog.storage.FirstIndex()
 	ents := make([]*pb.Entry, 0)
@@ -271,15 +266,12 @@ func (r *Raft) tick() {
 	// Your Code Here (2A).
 	if r.State == StateLeader {
 		r.heartbeatElapsed++
-
-		//fmt.Printf("elapsed=%d,timeout=%d",r.heartbeatElapsed,r.heartbeatTimeout);
 		if r.heartbeatElapsed >= r.heartbeatTimeout {
 			r.heartbeatElapsed = 0
 			r.Step(pb.Message{MsgType: pb.MessageType_MsgBeat, From: r.id})
 		}
 	} else {
 		r.electionElapsed++
-		//fmt.Printf("elapsed=%d,timeout=%d",r.heartbeatElapsed,r.heartbeatTimeout);
 		if r.electionElapsed >= r.electionTimeout+r.randomTimeout {
 			r.electionElapsed = 0
 			r.randomTimeout = rand.Intn(r.electionTimeout)
@@ -353,7 +345,6 @@ func (r *Raft) becomeLeader() {
 // on `eraftpb.proto` for what msgs should be handled
 func (r *Raft) Step(m pb.Message) error {
 	// Your Code Here (2A).
-	//fmt.Printf("id=%d,state=%d",r.id,r.State)
 	switch r.State {
 	case StateFollower:
 		err := r.stepFollower(m)
@@ -382,14 +373,12 @@ func (r *Raft) handleAppendEntries(m pb.Message) {
 	case StateLeader:
 		{
 			li := r.RaftLog.LastIndex()
-			//fmt.Printf("len m.entries=%d\n", len(m.Entries))
 			ents := make([]pb.Entry, 0)
 			for i := range m.Entries {
 				m.Entries[i].Index = li + 1 + uint64(i)
 				m.Entries[i].Term = r.Term
 				ents = append(ents, *m.Entries[i])
 				r.RaftLog.entries = append(r.RaftLog.entries, *m.Entries[i])
-				//fmt.Printf("len raftlog.entries=%d\n", len(r.RaftLog.entries))
 			}
 		}
 	case StateFollower:
@@ -413,8 +402,6 @@ func (r *Raft) handleAppendEntries(m pb.Message) {
 					msg.Reject = true
 				}
 			}
-
-			//r.RaftLog.stabled = li
 			fi := r.RaftLog.FirstIndex
 			stable := true
 			for i := range m.Entries {
@@ -425,11 +412,6 @@ func (r *Raft) handleAppendEntries(m pb.Message) {
 					break
 				}
 				if entidx <= li {
-					//if (entidx - fi) == uint64(len(r.RaftLog.entries)) {
-
-					//	fmt.Printf("entidx=%d,fi=%d,li=%d,%d,len=%d\n", entidx, fi, li, entidx-fi, len(r.RaftLog.entries))
-					//	fmt.Printf("%v\n", r.RaftLog.entries)
-					//}
 					enterm, _ := r.RaftLog.Term(entidx)
 					if enterm != m.Entries[i].Term {
 
@@ -447,8 +429,6 @@ func (r *Raft) handleAppendEntries(m pb.Message) {
 				} else {
 					r.RaftLog.entries = append(r.RaftLog.entries, *m.Entries[i])
 				}
-
-				//fmt.Printf("len raftlog.entries=%d\n", len(r.RaftLog.entries))
 			}
 			if msg.Reject == false {
 				if r.RaftLog.committed < m.Commit {
@@ -518,8 +498,6 @@ func (r *Raft) updateCommited() bool {
 	fi := r.RaftLog.FirstIndex
 	li := r.RaftLog.LastIndex()
 	for i, prs := range r.Prs {
-
-		//fmt.Printf("id=%d,match=%d,li=%d\n",i,prs.Match,li)
 		if i == r.id {
 			matches[li-fi]++
 		} else {
@@ -531,7 +509,6 @@ func (r *Raft) updateCommited() bool {
 	var sum uint64
 	sum = 0
 	for i := li; i >= fi; i-- {
-
 		sum += matches[i-fi]
 		if sum > uint64((len(r.Prs) / 2)) {
 			term, _ := r.RaftLog.Term(i)
@@ -547,8 +524,6 @@ func (r *Raft) updateCommited() bool {
 
 func (r *Raft) stepLeader(m pb.Message) error {
 	// Your Code Here (2C).
-	//fmt.Printf("\n%d,msg.type=%d",r.id,m.MsgType)
-
 	switch m.MsgType {
 	case pb.MessageType_MsgAppend:
 		{
@@ -558,7 +533,6 @@ func (r *Raft) stepLeader(m pb.Message) error {
 		}
 	case pb.MessageType_MsgBeat:
 		{
-			//fmt.Printf("\n lenprs=%d\n",len(r.Prs))
 			for i, _ := range r.Prs {
 				if i != r.id {
 					r.sendHeartbeat(i)
@@ -637,7 +611,6 @@ func (r *Raft) stepCandidate(m pb.Message) error {
 		{
 			r.becomeCandidate()
 			for i, _ := range r.Prs {
-				//fmt.Printf("i=%d,r.id=%d",i,r.id)
 				if i != r.id {
 					r.sendRequestVote(i)
 				}
@@ -684,9 +657,6 @@ func (r *Raft) stepCandidate(m pb.Message) error {
 
 func (r *Raft) stepFollower(m pb.Message) error {
 	// Your Code Here (2C).
-
-	//fmt.Printf("\n%d,msg.type=%d",r.id,m.MsgType)
-
 	switch m.MsgType {
 	case pb.MessageType_MsgAppend:
 		{
@@ -708,7 +678,6 @@ func (r *Raft) stepFollower(m pb.Message) error {
 		{
 			r.becomeCandidate()
 			for i, _ := range r.Prs {
-				//fmt.Printf("i=%d,r.id=%d",i,r.id)
 				if i != r.id {
 					r.sendRequestVote(i)
 				}
@@ -738,7 +707,6 @@ func (r *Raft) stepFollower(m pb.Message) error {
 			if m.Term > r.Term {
 				r.Term = m.Term
 			}
-
 			msg.Term = r.Term
 			r.msgs = append(r.msgs, msg)
 		}

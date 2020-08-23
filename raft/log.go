@@ -68,7 +68,6 @@ func newLog(storage Storage) *RaftLog {
 		panic(err)
 	}
 	entries, err := storage.Entries(fi, li+1)
-	//fmt.Printf("fi=%d,li+1=%d,len=%d,%v\n",fi,li+1,len(entries),entries)
 	raftlog := &RaftLog{
 		storage:    storage,
 		stabled:    li,
@@ -76,7 +75,6 @@ func newLog(storage Storage) *RaftLog {
 		applied:    fi - 1,
 		FirstIndex: fi,
 	}
-
 	return raftlog
 }
 
@@ -91,7 +89,6 @@ func (l *RaftLog) maybeCompact() {
 func (l *RaftLog) unstableEntries() []pb.Entry {
 	// Your Code Here (2A).
 	fi := l.FirstIndex
-
 	if l.stabled+1 > l.LastIndex() {
 		return make([]pb.Entry, 0)
 	}
@@ -147,21 +144,9 @@ func (l *RaftLog) getEnts(i uint64) []*pb.Entry {
 	ents := make([]*pb.Entry, 0)
 	fi, _ := l.storage.FirstIndex()
 	li := l.LastIndex()
-	//fmt.Printf("start i=%d,len=%d", i, len(l.entries))
 	for ; i <= li; i++ {
 		ents = append(ents, &l.entries[i-fi])
 	}
 
 	return ents
-}
-func (l *RaftLog) toSliceIndex(i uint64) int {
-	idx := int(i - l.FirstIndex)
-	if idx < 0 {
-		panic("toSliceIndex: index < 0")
-	}
-	return idx
-}
-
-func (l *RaftLog) toEntryIndex(i int) uint64 {
-	return uint64(i) + l.FirstIndex
 }

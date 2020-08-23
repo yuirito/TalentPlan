@@ -43,14 +43,11 @@ func newPeerMsgHandler(peer *peer, ctx *GlobalContext) *peerMsgHandler {
 
 func (d *peerMsgHandler) read() {}
 
-func (d *peerMsgHandler) processRequest(entry *eraftpb.Entry, req *raft_cmdpb.Request, wb *engine_util.WriteBatch) *engine_util.WriteBatch {
+func (d *peerMsgHandler) processRequest(entry *eraftpb.Entry, wb *engine_util.WriteBatch) *engine_util.WriteBatch {
 	// apply to kv
-
+	req := &raft_cmdpb.Request{}
+	req.Unmarshal(entry.Data)
 	switch req.CmdType {
-	case raft_cmdpb.CmdType_Get:
-		d.peerStorage.applyState.AppliedIndex = entry.Index
-		wb.SetMeta(meta.ApplyStateKey(d.regionId), d.peerStorage.applyState)
-		wb.WriteToDB(d.peerStorage.Engines.Kv)
 	case raft_cmdpb.CmdType_Put:
 		putReq := req.GetPut()
 		wb.SetCF(putReq.GetCf(), putReq.GetKey(), putReq.GetValue())
@@ -67,6 +64,11 @@ func (d *peerMsgHandler) processRequest(entry *eraftpb.Entry, req *raft_cmdpb.Re
 				resp := &raft_cmdpb.RaftCmdResponse{Header: &raft_cmdpb.RaftResponseHeader{}}
 				switch req.CmdType {
 				case raft_cmdpb.CmdType_Get:
+
+					d.peerStorage.applyState.AppliedIndex = entry.Index
+					wb.SetMeta(meta.ApplyStateKey(d.regionId), d.peerStorage.applyState)
+					wb.WriteToDB(d.peerStorage.Engines.Kv)
+
 					value, err := engine_util.GetCF(d.peerStorage.Engines.Kv, req.GetGet().GetCf(), req.GetGet().GetKey())
 					if err != nil {
 						value = nil
@@ -78,9 +80,11 @@ func (d *peerMsgHandler) processRequest(entry *eraftpb.Entry, req *raft_cmdpb.Re
 				case raft_cmdpb.CmdType_Delete:
 					resp.Responses = []*raft_cmdpb.Response{{CmdType: raft_cmdpb.CmdType_Delete, Delete: &raft_cmdpb.DeleteResponse{}}}
 				case raft_cmdpb.CmdType_Snap:
+
 					d.peerStorage.applyState.AppliedIndex = entry.Index
 					wb.SetMeta(meta.ApplyStateKey(d.regionId), d.peerStorage.applyState)
 					wb.WriteToDB(d.peerStorage.Engines.Kv)
+
 					resp.Responses = []*raft_cmdpb.Response{{CmdType: raft_cmdpb.CmdType_Snap, Snap: &raft_cmdpb.SnapResponse{Region: d.Region()}}}
 					p.cb.Txn = d.peerStorage.Engines.Kv.NewTransaction(false)
 					wb = new(engine_util.WriteBatch)
@@ -93,15 +97,6 @@ func (d *peerMsgHandler) processRequest(entry *eraftpb.Entry, req *raft_cmdpb.Re
 	return wb
 }
 
-func (d *peerMsgHandler) process(entry *eraftpb.Entry, wb *engine_util.WriteBatch) *engine_util.WriteBatch {
-	req := &raft_cmdpb.Request{}
-	err := req.Unmarshal(entry.Data)
-	if err == nil {
-		return d.processRequest(entry, req, wb)
-	}
-	panic(err)
-}
-
 func (d *peerMsgHandler) HandleRaftReady() {
 	if d.stopped {
 		return
@@ -111,14 +106,14 @@ func (d *peerMsgHandler) HandleRaftReady() {
 		rd := d.RaftGroup.Ready()
 		d.peerStorage.SaveReadyState(&rd)
 		d.Send(d.ctx.trans, rd.Messages)
+		wb := new(engine_util.WriteBatch)
+		for _, ent := range rd.CommittedEntries {
+			wb = d.processRequest(&ent, wb)
+		}
 		if len(rd.CommittedEntries) > 0 {
-			kvWB := new(engine_util.WriteBatch)
-			for _, entry := range rd.CommittedEntries {
-				kvWB = d.process(&entry, kvWB)
-			}
 			d.peerStorage.applyState.AppliedIndex = rd.CommittedEntries[len(rd.CommittedEntries)-1].Index
-			kvWB.SetMeta(meta.ApplyStateKey(d.regionId), d.peerStorage.applyState)
-			kvWB.WriteToDB(d.peerStorage.Engines.Kv)
+			wb.SetMeta(meta.ApplyStateKey(d.regionId), d.peerStorage.applyState)
+			wb.WriteToDB(d.peerStorage.Engines.Kv)
 		}
 		d.RaftGroup.Advance(rd)
 	}
@@ -193,19 +188,12 @@ func (d *peerMsgHandler) proposeRaftCommand(msg *raft_cmdpb.RaftCmdRequest, cb *
 		return
 	}
 	// Your Code Here (2B).
-	if msg.AdminRequest != nil {
-		data, err := msg.AdminRequest.Marshal()
-		if err != nil {
-			panic(err)
-		}
-		d.RaftGroup.Propose(data)
-		return
-	}
 	data, err := msg.Requests[0].Marshal()
 	if err != nil {
 		panic(err)
 	}
 	d.RaftGroup.Propose(data)
+
 	r := d.RaftGroup.Raft
 	index := r.RaftLog.LastIndex()
 	p := &proposal{index: index, term: r.Term, cb: cb}
