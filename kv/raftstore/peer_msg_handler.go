@@ -51,7 +51,6 @@ func (d *peerMsgHandler) processRequest(entry *eraftpb.Entry, req *raft_cmdpb.Re
 		d.peerStorage.applyState.AppliedIndex = entry.Index
 		wb.SetMeta(meta.ApplyStateKey(d.regionId), d.peerStorage.applyState)
 		wb.WriteToDB(d.peerStorage.Engines.Kv)
-
 	case raft_cmdpb.CmdType_Put:
 		putReq := req.GetPut()
 		wb.SetCF(putReq.GetCf(), putReq.GetKey(), putReq.GetValue())
@@ -59,7 +58,6 @@ func (d *peerMsgHandler) processRequest(entry *eraftpb.Entry, req *raft_cmdpb.Re
 		delReq := req.GetDelete()
 		wb.DeleteCF(delReq.GetCf(), delReq.GetKey())
 	}
-	// response
 	if len(d.proposals) > 0 {
 		p := d.proposals[0]
 		if p.index == entry.Index {
@@ -95,31 +93,11 @@ func (d *peerMsgHandler) processRequest(entry *eraftpb.Entry, req *raft_cmdpb.Re
 	return wb
 }
 
-func (d *peerMsgHandler) processAdminRequest(req *raft_cmdpb.AdminRequest, wb *engine_util.WriteBatch) *engine_util.WriteBatch {
-	switch req.CmdType {
-	case raft_cmdpb.AdminCmdType_CompactLog:
-		compactLog := req.GetCompactLog()
-		applySt := d.peerStorage.applyState
-		if compactLog.CompactIndex >= applySt.TruncatedState.Index {
-			applySt.TruncatedState.Index = compactLog.CompactIndex
-			applySt.TruncatedState.Term = compactLog.CompactTerm
-			wb.SetMeta(meta.ApplyStateKey(d.regionId), applySt)
-			d.ScheduleCompactLog(d.RaftGroup.Raft.RaftLog.FirstIndex, applySt.TruncatedState.Index)
-		}
-	}
-	return wb
-}
-
 func (d *peerMsgHandler) process(entry *eraftpb.Entry, wb *engine_util.WriteBatch) *engine_util.WriteBatch {
 	req := &raft_cmdpb.Request{}
 	err := req.Unmarshal(entry.Data)
 	if err == nil {
 		return d.processRequest(entry, req, wb)
-	}
-	adminReq := &raft_cmdpb.AdminRequest{}
-	err = adminReq.Unmarshal(entry.Data)
-	if err == nil {
-		return d.processAdminRequest(adminReq, wb)
 	}
 	panic(err)
 }
